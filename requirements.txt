@@ -1,0 +1,6 @@
+
+Streamlit
+pandas
+altair
+openpyxl
+requests
