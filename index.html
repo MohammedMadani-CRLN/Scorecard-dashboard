@@ -1,0 +1,47 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDS Scorecard Dashboard</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+  <iframe src="https://pds-scorecard-dashboard-tool.onrender.com" </iframe>
+</body>
+</html>
+`` inside an iframe.
+
+---
+
+### 2. Push to GitHub
+- Create a new repo for this proxy (or a subfolder in your existing repo).
+- Push `index.html`.
+
+---
+
+### 3. Deploy on Netlify
+- Go to [https://netlify.com](https://p.
+- Click **New site from Git**.
+- Connect your GitHub repo.
+- Select the folder with `index.html`.
+- **Build settings:**
+  - **Build command:** (leave empty for static site)
+  - **Publish directory:** The folder containing `index.html` (e.g., `/` if root).
+- Click **Deploy site**.
+
+Netlify will give you a URL like:
+``
