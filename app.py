@@ -7,21 +7,37 @@ import datetime as dt
 import streamlit as st
 import pandas as pd
 import altair as alt  # Interactive charts
+from openpyxl.styles import PatternFill
+from openpyxl.formatting.rule import CellIsRule
+from openpyxl.utils import get_column_letter
+
 
 # -------------------------------------
 # Configuration & Constants
 # -------------------------------------
+
+# --- Storage root (env-aware) ---
+# If you attach a Persistent Disk on Render, set DISK_PATH to its mount, e.g., /var/data
+BASE_DIR = os.getenv("DISK_PATH", "data")
+
+
+
 APP_NAME = "Scorecard Data Manager"
-DATA_DIR = "data"
+
+# Rebind all dataset paths to BASE_DIR
+DATA_DIR = BASE_DIR
 ATTACHMENTS_DIR = os.path.join(DATA_DIR, "attachments")
 HISTORY_FILE = os.path.join(DATA_DIR, "history.xlsx")
 COMBINED_FILE = os.path.join(DATA_DIR, "combined_data.xlsx")
 COMBINED_FILE_CSV = os.path.join(DATA_DIR, "combined_data.csv")
 AUDIT_LOG_FILE = os.path.join(DATA_DIR, "audit_log.xlsx")
+
+
 # Export filename prefix for downloads (easy to change in one place)
 EXPORT_PREFIX = "associates_"
 
-# --- BA-specific Configuration (new) ---
+
+# BA-specific
 BA_ATTACHMENTS_DIR = os.path.join(DATA_DIR, "attachments_ba")
 BA_HISTORY_FILE = os.path.join(DATA_DIR, "ba_history.xlsx")
 BA_COMBINED_FILE = os.path.join(DATA_DIR, "ba_combined_data.xlsx")
@@ -31,7 +47,8 @@ BA_FEEDBACK_FILE = os.path.join(DATA_DIR, "ba_monthly_feedback.xlsx")
 BA_EXPORT_PREFIX = "ba_"
 
 
-# --- PE-specific Configuration (new) ---
+
+# PE-specific
 PE_ATTACHMENTS_DIR = os.path.join(DATA_DIR, "attachments_pe")
 PE_HISTORY_FILE = os.path.join(DATA_DIR, "pe_history.xlsx")
 PE_COMBINED_FILE = os.path.join(DATA_DIR, "pe_combined_data.xlsx")
@@ -40,8 +57,7 @@ PE_AUDIT_LOG_FILE = os.path.join(DATA_DIR, "pe_audit_log.xlsx")
 PE_FEEDBACK_FILE = os.path.join(DATA_DIR, "pe_monthly_feedback.xlsx")
 PE_EXPORT_PREFIX = "pe_"
 
-
-# --- TL-specific Configuration (new) ---
+# TL-specific
 TL_ATTACHMENTS_DIR = os.path.join(DATA_DIR, "attachments_tl")
 TL_HISTORY_FILE = os.path.join(DATA_DIR, "tl_history.xlsx")
 TL_COMBINED_FILE = os.path.join(DATA_DIR, "tl_combined_data.xlsx")
@@ -50,7 +66,7 @@ TL_AUDIT_LOG_FILE = os.path.join(DATA_DIR, "tl_audit_log.xlsx")
 TL_FEEDBACK_FILE = os.path.join(DATA_DIR, "tl_monthly_feedback.xlsx")
 TL_EXPORT_PREFIX = "tl_"
 
-# --- PL-specific Configuration (new) ---
+# PL-specific
 PL_ATTACHMENTS_DIR = os.path.join(DATA_DIR, "attachments_pl")
 PL_HISTORY_FILE = os.path.join(DATA_DIR, "pl_history.xlsx")
 PL_COMBINED_FILE = os.path.join(DATA_DIR, "pl_combined_data.xlsx")
@@ -314,6 +330,134 @@ def add_numeric_percent_columns(df: pd.DataFrame) -> pd.DataFrame:
             num = num.where(num > 1.5, num * 100)
             df[f"{col}_num"] = num
     return df
+
+
+
+# ---- Cached loaders (Associates) ----
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_history_cached() -> pd.DataFrame:
+    try:
+        return pd.read_excel(HISTORY_FILE)
+    except Exception:
+        # Return empty frame with expected columns if first run
+        return pd.DataFrame(columns=[
+            "id","filename","saved_path","uploader","upload_dt","reporting_month",
+            "rows_count","source_url","status","message","active","superseded_by","validation_status"
+        ])
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_combined_cached() -> pd.DataFrame:
+    try:
+        return pd.read_excel(COMBINED_FILE)
+    except Exception:
+        try:
+            return pd.read_csv(COMBINED_FILE_CSV)
+        except Exception:
+            return pd.DataFrame(columns=["Attachment ID"])
+
+
+# ---- Cached loaders (BA) ----
+@st.cache_data(ttl=3600, show_spinner=False)
+def ba_load_history_cached() -> pd.DataFrame:
+    try:
+        return pd.read_excel(BA_HISTORY_FILE)
+    except Exception:
+        return pd.DataFrame(columns=[
+            "id","filename","saved_path","uploader","upload_dt","reporting_month",
+            "rows_count","source_url","status","message","active","superseded_by","validation_status"
+        ])
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def ba_load_combined_cached() -> pd.DataFrame:
+    try:
+        return pd.read_excel(BA_COMBINED_FILE)
+    except Exception:
+        try:
+            return pd.read_csv(BA_COMBINED_FILE_CSV)
+        except Exception:
+            return pd.DataFrame(columns=["Attachment ID"])
+
+
+# ---- Cached loaders (PE) ----
+@st.cache_data(ttl=3600, show_spinner=False)
+def pe_load_history_cached() -> pd.DataFrame:
+    try:
+        return pd.read_excel(PE_HISTORY_FILE)
+    except Exception:
+        return pd.DataFrame(columns=[
+            "id","filename","saved_path","uploader","upload_dt","reporting_month",
+            "rows_count","source_url","status","message","active","superseded_by","validation_status"
+        ])
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def pe_load_combined_cached() -> pd.DataFrame:
+    try:
+        return pd.read_excel(PE_COMBINED_FILE)
+    except Exception:
+        try:
+            return pd.read_csv(PE_COMBINED_FILE_CSV)
+        except Exception:
+            return pd.DataFrame(columns=["Attachment ID"])
+
+
+# ---- Cached loaders (TL) ----
+@st.cache_data(ttl=3600, show_spinner=False)
+def tl_load_history_cached() -> pd.DataFrame:
+    try:
+        return pd.read_excel(TL_HISTORY_FILE)
+    except Exception:
+        return pd.DataFrame(columns=[
+            "id","filename","saved_path","uploader","upload_dt","reporting_month",
+            "rows_count","source_url","status","message","active","superseded_by","validation_status"
+        ])
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def tl_load_combined_cached() -> pd.DataFrame:
+    try:
+        return pd.read_excel(TL_COMBINED_FILE)
+    except Exception:
+        try:
+            return pd.read_csv(TL_COMBINED_FILE_CSV)
+        except Exception:
+            return pd.DataFrame(columns=["Attachment ID"])
+
+
+# ---- Cached loaders (PL) ----
+@st.cache_data(ttl=3600, show_spinner=False)
+def pl_load_history_cached() -> pd.DataFrame:
+    try:
+        return pd.read_excel(PL_HISTORY_FILE)
+    except Exception:
+        return pd.DataFrame(columns=[
+            "id","filename","saved_path","uploader","upload_dt","reporting_month",
+            "rows_count","source_url","status","message","active","superseded_by","validation_status"
+        ])
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def pl_load_combined_cached() -> pd.DataFrame:
+    try:
+        return pd.read_excel(PL_COMBINED_FILE)
+    except Exception:
+        try:
+            return pd.read_csv(PL_COMBINED_FILE_CSV)
+        except Exception:
+            return pd.DataFrame(columns=["Attachment ID"])
+
+
+# ---- Cached transforms ----
+@st.cache_data(ttl=3600, show_spinner=False)
+def convert_percentage_cached(df: pd.DataFrame) -> pd.DataFrame:
+    return convert_percentage_columns(df)
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def add_numeric_cached(df: pd.DataFrame) -> pd.DataFrame:
+    return add_numeric_percent_columns(df)
+
+
+def invalidate_data_caches():
+    # Clear all data caches (global)
+    st.cache_data.clear()
+
 
 # -------------------------------------
 # Month normalization for filtering (YYYY-MM)
@@ -748,6 +892,7 @@ def mark_invalid_and_cleanup(attachment_id, user):
     combined_df = load_combined()
     combined_df = combined_df[combined_df["Attachment ID"] != attachment_id]
     save_combined(combined_df)
+    invalidate_data_caches()  # ensure next UI run fetches fresh files
     try: os.remove(saved_path)
     except FileNotFoundError: pass
     log_audit("Invalidation & Cleanup", attachment_id, filename, user)
@@ -813,16 +958,17 @@ def ba_save_combined(df):
 
 
 def ba_mark_invalid_and_cleanup(attachment_id, user):
-    history_df = ba_load_history()
+    history_df = ba_load_history_cached()
     row = history_df[history_df["id"] == attachment_id]
     if row.empty: return False, "Attachment not found"
     filename = row.iloc[0]["filename"]
     saved_path = row.iloc[0]["saved_path"]
     history_df.loc[history_df["id"] == attachment_id, ["validation_status","active"]] = ["Invalid", False]
     ba_save_history(history_df)
-    combined_df = ba_load_combined()
+    combined_df = ba_load_combined_cached()
     combined_df = combined_df[combined_df["Attachment ID"] != attachment_id]
     ba_save_combined(combined_df)
+    invalidate_data_caches()  # ensure next UI run fetches fresh files
     try: os.remove(saved_path)
     except FileNotFoundError: pass
     ba_log_audit("Invalidation & Cleanup", attachment_id, filename, user)
@@ -830,7 +976,7 @@ def ba_mark_invalid_and_cleanup(attachment_id, user):
 
 
 def ba_mark_valid_and_rebuild(attachment_id, make_active: bool, user: str):
-    history_df = ba_load_history()
+    history_df = ba_load_history_cached()
     row = history_df[history_df["id"] == attachment_id]
     if row.empty: return False, "Attachment not found"
     filename = row.iloc[0]["filename"]
@@ -844,7 +990,7 @@ def ba_mark_valid_and_rebuild(attachment_id, make_active: bool, user: str):
         data_df = read_excel_bytes(file_bytes)
         data_df = convert_percentage_columns(data_df)
         data_df["Attachment ID"] = attachment_id
-        combined_df = ba_load_combined()
+        combined_df = ba_load_combined_cached()
         combined_df = combined_df[combined_df["Attachment ID"] != attachment_id]
         combined_df = pd.concat([combined_df, data_df], ignore_index=True)
         ba_save_combined(combined_df)
@@ -891,16 +1037,17 @@ def pe_save_combined(df):
 
 
 def pe_mark_invalid_and_cleanup(attachment_id, user):
-    history_df = pe_load_history()
+    history_df = pe_load_history_cached()
     row = history_df[history_df["id"] == attachment_id]
     if row.empty: return False, "Attachment not found"
     filename = row.iloc[0]["filename"]
     saved_path = row.iloc[0]["saved_path"]
     history_df.loc[history_df["id"] == attachment_id, ["validation_status","active"]] = ["Invalid", False]
     pe_save_history(history_df)
-    combined_df = pe_load_combined()
+    combined_df = pe_load_combined_cached()
     combined_df = combined_df[combined_df["Attachment ID"] != attachment_id]
     pe_save_combined(combined_df)
+    invalidate_data_caches()  # ensure next UI run fetches fresh files
     try: os.remove(saved_path)
     except FileNotFoundError: pass
     pe_log_audit("Invalidation & Cleanup", attachment_id, filename, user)
@@ -908,7 +1055,7 @@ def pe_mark_invalid_and_cleanup(attachment_id, user):
 
 
 def pe_mark_valid_and_rebuild(attachment_id, make_active: bool, user: str):
-    history_df = pe_load_history()
+    history_df = pe_load_history_cached()
     row = history_df[history_df["id"] == attachment_id]
     if row.empty: return False, "Attachment not found"
     filename = row.iloc[0]["filename"]
@@ -922,7 +1069,7 @@ def pe_mark_valid_and_rebuild(attachment_id, make_active: bool, user: str):
         data_df = read_excel_bytes(file_bytes)
         data_df = convert_percentage_columns(data_df)
         data_df["Attachment ID"] = attachment_id
-        combined_df = pe_load_combined()
+        combined_df = pe_load_combined_cached()
         combined_df = combined_df[combined_df["Attachment ID"] != attachment_id]
         combined_df = pd.concat([combined_df, data_df], ignore_index=True)
         pe_save_combined(combined_df)
@@ -965,23 +1112,24 @@ def tl_save_combined(df):
         df.to_csv(TL_COMBINED_FILE_CSV, index=False)
 
 def tl_mark_invalid_and_cleanup(attachment_id, user):
-    history_df = tl_load_history()
+    history_df = tl_load_history_cached()
     row = history_df[history_df["id"] == attachment_id]
     if row.empty: return False, "Attachment not found"
     filename = row.iloc[0]["filename"]
     saved_path = row.iloc[0]["saved_path"]
     history_df.loc[history_df["id"] == attachment_id, ["validation_status","active"]] = ["Invalid", False]
     tl_save_history(history_df)
-    combined_df = tl_load_combined()
+    combined_df = tl_load_combined_cached()
     combined_df = combined_df[combined_df["Attachment ID"] != attachment_id]
     tl_save_combined(combined_df)
+    invalidate_data_caches()  # ensure next UI run fetches fresh files
     try: os.remove(saved_path)
     except FileNotFoundError: pass
     tl_log_audit("Invalidation & Cleanup", attachment_id, filename, user)
     return True, f"Attachment {attachment_id} marked invalid, deactivated, and data removed."
 
 def tl_mark_valid_and_rebuild(attachment_id, make_active: bool, user: str):
-    history_df = tl_load_history()
+    history_df = tl_load_history_cached()
     row = history_df[history_df["id"] == attachment_id]
     if row.empty: return False, "Attachment not found"
     filename = row.iloc[0]["filename"]
@@ -995,7 +1143,7 @@ def tl_mark_valid_and_rebuild(attachment_id, make_active: bool, user: str):
         data_df = read_excel_bytes(file_bytes)
         data_df = convert_percentage_columns(data_df)
         data_df["Attachment ID"] = attachment_id
-        combined_df = tl_load_combined()
+        combined_df = tl_load_combined_cached()
         combined_df = combined_df[combined_df["Attachment ID"] != attachment_id]
         combined_df = pd.concat([combined_df, data_df], ignore_index=True)
         tl_save_combined(combined_df)
@@ -1038,23 +1186,24 @@ def pl_save_combined(df):
         df.to_csv(PL_COMBINED_FILE_CSV, index=False)
 
 def pl_mark_invalid_and_cleanup(attachment_id, user):
-    history_df = pl_load_history()
+    history_df = pl_load_history_cached()
     row = history_df[history_df["id"] == attachment_id]
     if row.empty: return False, "Attachment not found"
     filename = row.iloc[0]["filename"]
     saved_path = row.iloc[0]["saved_path"]
     history_df.loc[history_df["id"] == attachment_id, ["validation_status","active"]] = ["Invalid", False]
     pl_save_history(history_df)
-    combined_df = pl_load_combined()
+    combined_df = pl_load_combined_cached()
     combined_df = combined_df[combined_df["Attachment ID"] != attachment_id]
     pl_save_combined(combined_df)
+    invalidate_data_caches()  # ensure next UI run fetches fresh files
     try: os.remove(saved_path)
     except FileNotFoundError: pass
     pl_log_audit("Invalidation & Cleanup", attachment_id, filename, user)
     return True, f"Attachment {attachment_id} marked invalid, deactivated, and data removed."
 
 def pl_mark_valid_and_rebuild(attachment_id, make_active: bool, user: str):
-    history_df = pl_load_history()
+    history_df = pl_load_history_cached()
     row = history_df[history_df["id"] == attachment_id]
     if row.empty: return False, "Attachment not found"
     filename = row.iloc[0]["filename"]
@@ -1068,7 +1217,7 @@ def pl_mark_valid_and_rebuild(attachment_id, make_active: bool, user: str):
         data_df = read_excel_bytes(file_bytes)
         data_df = convert_percentage_columns(data_df)
         data_df["Attachment ID"] = attachment_id
-        combined_df = pl_load_combined()
+        combined_df = pl_load_combined_cached()
         combined_df = combined_df[combined_df["Attachment ID"] != attachment_id]
         combined_df = pd.concat([combined_df, data_df], ignore_index=True)
         pl_save_combined(combined_df)
@@ -1122,6 +1271,7 @@ def process_upload(name, file_bytes, uploader, source_url=None):
     combined_df = load_combined()
     combined_df = pd.concat([combined_df, data_df], ignore_index=True)
     save_combined(combined_df)
+    invalidate_data_caches()  # ensure next UI run fetches fresh files
     return True, f"Uploaded and processed for month {month}.", data_df.head(20)
 
 # BA Upload Processing
@@ -1141,7 +1291,7 @@ def ba_process_upload(name, file_bytes, uploader, source_url=None):
     path = os.path.join(BA_ATTACHMENTS_DIR, f"{month}_{name.replace('/', '_').replace(chr(92), '_')}")
     with open(path, "wb") as f:
         f.write(file_bytes)
-    history_df = ba_load_history()
+    history_df = ba_load_history_cached()
     mask = (history_df["reporting_month"] == month) & (history_df["active"] == True)
     for idx in history_df[mask].index:
         try: os.remove(history_df.at[idx, "saved_path"])
@@ -1156,9 +1306,10 @@ def ba_process_upload(name, file_bytes, uploader, source_url=None):
     }])], ignore_index=True)
     ba_save_history(history_df)
     data_df["Attachment ID"] = attach_id
-    combined_df = ba_load_combined()
+    combined_df = ba_load_combined_cached()
     combined_df = pd.concat([combined_df, data_df], ignore_index=True)
     ba_save_combined(combined_df)
+    invalidate_data_caches()  # ensure next UI run fetches fresh files
     return True, f"Uploaded and processed for month {month}.", data_df.head(20)
 
 # PE Upload Processing
@@ -1178,7 +1329,7 @@ def pe_process_upload(name, file_bytes, uploader, source_url=None):
     path = os.path.join(PE_ATTACHMENTS_DIR, f"{month}_{name.replace('/', '_').replace(chr(92), '_')}")
     with open(path, "wb") as f:
         f.write(file_bytes)
-    history_df = pe_load_history()
+    history_df = pe_load_history_cached()
     # Supersede any active file for the same month
     mask = (history_df["reporting_month"] == month) & (history_df["active"] == True)
     for idx in history_df[mask].index:
@@ -1194,9 +1345,10 @@ def pe_process_upload(name, file_bytes, uploader, source_url=None):
     }])], ignore_index=True)
     pe_save_history(history_df)
     data_df["Attachment ID"] = attach_id
-    combined_df = pe_load_combined()
+    combined_df = pe_load_combined_cached()
     combined_df = pd.concat([combined_df, data_df], ignore_index=True)
     pe_save_combined(combined_df)
+    invalidate_data_caches()  # ensure next UI run fetches fresh files
     return True, f"Uploaded and processed for month {month}.", data_df.head(20)
 
 # TL Upload Processing
@@ -1216,7 +1368,7 @@ def tl_process_upload(name, file_bytes, uploader, source_url=None):
     path = os.path.join(TL_ATTACHMENTS_DIR, f"{month}_{name.replace('/', '_').replace(chr(92), '_')}")
     with open(path, "wb") as f:
         f.write(file_bytes)
-    history_df = tl_load_history()
+    history_df = tl_load_history_cached()
     # Supersede any active file for the same month
     mask = (history_df["reporting_month"] == month) & (history_df["active"] == True)
     for idx in history_df[mask].index:
@@ -1232,9 +1384,10 @@ def tl_process_upload(name, file_bytes, uploader, source_url=None):
     }])], ignore_index=True)
     tl_save_history(history_df)
     data_df["Attachment ID"] = attach_id
-    combined_df = tl_load_combined()
+    combined_df = tl_load_combined_cached()
     combined_df = pd.concat([combined_df, data_df], ignore_index=True)
     tl_save_combined(combined_df)
+    invalidate_data_caches()  # ensure next UI run fetches fresh files
     return True, f"Uploaded and processed for month {month}.", data_df.head(20)
 
 
@@ -1255,7 +1408,7 @@ def pl_process_upload(name, file_bytes, uploader, source_url=None):
     path = os.path.join(PL_ATTACHMENTS_DIR, f"{month}_{name.replace('/', '_').replace(chr(92), '_')}")
     with open(path, "wb") as f:
         f.write(file_bytes)
-    history_df = pl_load_history()
+    history_df = pl_load_history_cached()
     # Supersede any active file for the same month
     mask = (history_df["reporting_month"] == month) & (history_df["active"] == True)
     for idx in history_df[mask].index:
@@ -1271,9 +1424,10 @@ def pl_process_upload(name, file_bytes, uploader, source_url=None):
     }])], ignore_index=True)
     pl_save_history(history_df)
     data_df["Attachment ID"] = attach_id
-    combined_df = pl_load_combined()
+    combined_df = pl_load_combined_cached()
     combined_df = pd.concat([combined_df, data_df], ignore_index=True)
     pl_save_combined(combined_df)
+    invalidate_data_caches()  # ensure next UI run fetches fresh files
     return True, f"Uploaded and processed for month {month}.", data_df.head(20)
 
 
@@ -1308,6 +1462,47 @@ def apply_search(df, q):
             continue
     return df[mask]
 
+
+
+# --- Final score band filter (UI only) ---
+def apply_final_score_band_filter(df: pd.DataFrame, band: str) -> pd.DataFrame:
+    """
+    Filters rows by 'Final Score' value bands for UI display:
+      - '>= 100'
+      - 'Between 90 and 99.99'
+      - '< 90'
+      - 'All' (no filter)
+
+    Works with both % strings and numeric columns by using Final Score_num.
+    """
+    if df is None or df.empty or not band or band == "All":
+        return df
+
+    tmp = df.copy()
+
+    # Ensure numeric companion column exists
+    if "Final Score_num" not in tmp.columns:
+        tmp = add_numeric_percent_columns(tmp)
+
+    if "Final Score_num" not in tmp.columns:
+        # Gracefully skip if still unavailable
+        return df
+
+    if band == ">= 100":
+        mask = tmp["Final Score_num"] >= 100
+    elif band == "Between 90 and 99.99":
+        mask = (tmp["Final Score_num"] >= 90) & (tmp["Final Score_num"] < 100)
+    elif band == "< 90":
+        mask = tmp["Final Score_num"] < 90
+    else:
+        # Unknown value -> no-op
+        return df
+
+    return tmp[mask]
+
+
+
+
 def make_excel_bytes_from_df(df, hide_cols: bool):
     df = clean_dataframe_for_display(df, hide_cols)
     if exceeds_excel_limits(df):
@@ -1318,6 +1513,175 @@ def make_excel_bytes_from_df(df, hide_cols: bool):
     with pd.ExcelWriter(buf, engine="openpyxl") as w:
         df.to_excel(w, index=False)
     return buf.getvalue()
+
+###Color code the Final score column
+def _final_score_to_number(val):
+    """
+    Robustly converts Final Score values like '97%', '97.0', '97,0', ' 97 % ' to float 97.0.
+    If conversion fails, returns None.
+    """
+    try:
+        s = str(val).strip().replace('%', '').replace(' ', '').replace(',', '.')
+        return float(s)
+    except Exception:
+        return None
+
+
+def style_associates_metrics_df(df: pd.DataFrame):
+    """
+    Returns a pd.Styler with the Final Score column color-coded for the Associates Monthly view.
+    Only colors 'Final Score' if that column exists.
+    """
+    if df is None or df.empty or ("Final Score" not in df.columns):
+        return df
+
+    def _style_series(s: pd.Series):
+        styles = []
+        for v in s:
+            num = _final_score_to_number(v)
+            if num is None:
+                styles.append('')  # no style for missing/invalid
+                continue
+            if num >= 100:
+                styles.append('background-color: #C6EFCE; color: #1E4620;')  # light green
+            elif 90 <= num < 100:
+                styles.append('background-color: #FFF3CD; color: #664D03;')  # light yellow
+            else:
+                styles.append('background-color: #F8D7DA; color: #58151C;')  # light red
+        return styles
+
+    # Use Styler.apply on the Final Score column only
+    return df.style.apply(_style_series, subset=["Final Score"])
+
+
+def make_excel_bytes_associates_monthly_metrics(df: pd.DataFrame, hide_cols: bool):
+    """
+    Creates an Excel bytes payload for the Associates Monthly Metrics table,
+    with conditional formatting applied to the 'Final Score' column:
+        >= 100 -> green
+        90-99.99 -> yellow
+        < 90 -> red
+
+    Falls back to CSV if Excel size limits are exceeded.
+    """
+    # Clean display (respect global toggle)
+    df_clean = clean_dataframe_for_display(df, hide_cols)
+
+    # If too wide for Excel, keep parity with existing behavior and return CSV
+    if exceeds_excel_limits(df_clean):
+        buf = io.BytesIO()
+        df_clean.to_csv(buf, index=False)
+        return buf.getvalue()
+
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        sheet_name = "Associates Monthly Metrics"
+        df_clean.to_excel(writer, index=False, sheet_name=sheet_name)
+
+        wb = writer.book
+        ws = writer.sheets[sheet_name]
+
+        # If 'Final Score' exists, ensure numeric values for CF and apply styles
+        if "Final Score" in df_clean.columns:
+            col_idx = list(df_clean.columns).index("Final Score") + 1  # 1-based
+            col_letter = get_column_letter(col_idx)
+
+            # Convert written cells to numeric (so CellIsRule works), set a friendly number format
+            for r in range(2, ws.max_row + 1):  # skip header row (1)
+                cell = ws[f"{col_letter}{r}"]
+                num = _final_score_to_number(cell.value)
+                if num is not None:
+                    cell.value = num
+                    # Show as e.g., 97.0% (optional). If you prefer just 97.0, use '0.0'
+                    cell.number_format = '0.0"%"'
+
+            # Conditional formatting fills
+            green_fill = PatternFill(start_color='C6EFCE', end_color='C6EFCE', fill_type='solid')   # >= 100
+            yellow_fill = PatternFill(start_color='FFF3CD', end_color='FFF3CD', fill_type='solid') # 90-99.99
+            red_fill = PatternFill(start_color='F8D7DA', end_color='F8D7DA', fill_type='solid')    # < 90
+
+            data_range = f"{col_letter}2:{col_letter}{ws.max_row}"
+
+            # >= 100 -> green
+            ws.conditional_formatting.add(
+                data_range,
+                CellIsRule(operator='greaterThanOrEqual', formula=['100'], stopIfTrue=False, fill=green_fill)
+            )
+            # between 90 and 99.99 -> yellow
+            ws.conditional_formatting.add(
+                data_range,
+                CellIsRule(operator='between', formula=['90', '99.99'], stopIfTrue=False, fill=yellow_fill)
+            )
+            # < 90 -> red
+            ws.conditional_formatting.add(
+                data_range,
+                CellIsRule(operator='lessThan', formula=['90'], stopIfTrue=False, fill=red_fill)
+            )
+
+    return buf.getvalue()
+
+
+
+def make_excel_bytes_associates_ytd_aggregated(df: pd.DataFrame, hide_cols: bool):
+    """
+    Excel bytes for YTD Aggregated Associates table with conditional formatting
+    on 'Final Score' column:
+      >= 100  -> green
+      90-99.99 -> yellow
+      < 90    -> red
+    Falls back to CSV if Excel size limits are exceeded.
+    """
+    df_clean = clean_dataframe_for_display(df, hide_cols)
+
+    if exceeds_excel_limits(df_clean):
+        buf = io.BytesIO()
+        df_clean.to_csv(buf, index=False)
+        return buf.getvalue()
+
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        sheet_name = "Associates YTD Aggregated"
+        df_clean.to_excel(writer, index=False, sheet_name=sheet_name)
+        ws = writer.sheets[sheet_name]
+
+        if "Final Score" in df_clean.columns:
+            col_idx = list(df_clean.columns).index("Final Score") + 1
+            col_letter = get_column_letter(col_idx)
+
+            # Normalize to numeric for CF and apply display format
+            for r in range(2, ws.max_row + 1):
+                cell = ws[f"{col_letter}{r}"]
+                num = _final_score_to_number(cell.value)
+                if num is not None:
+                    cell.value = num
+                # Show as percentage (optional)
+                cell.number_format = '0.0"%"'
+
+            green_fill  = PatternFill(start_color='C6EFCE', end_color='C6EFCE', fill_type='solid')
+            yellow_fill = PatternFill(start_color='FFF3CD', end_color='FFF3CD', fill_type='solid')
+            red_fill    = PatternFill(start_color='F8D7DA', end_color='F8D7DA', fill_type='solid')
+
+            data_range = f"{col_letter}2:{col_letter}{ws.max_row}"
+
+            # >= 100 -> green
+            ws.conditional_formatting.add(
+                data_range,
+                CellIsRule(operator='greaterThanOrEqual', formula=['100'], stopIfTrue=False, fill=green_fill)
+            )
+            # between 90 and 99.99 -> yellow
+            ws.conditional_formatting.add(
+                data_range,
+                CellIsRule(operator='between', formula=['90', '99.99'], stopIfTrue=False, fill=yellow_fill)
+            )
+            # < 90 -> red
+            ws.conditional_formatting.add(
+                data_range,
+                CellIsRule(operator='lessThan', formula=['90'], stopIfTrue=False, fill=red_fill)
+            )
+
+    return buf.getvalue()
+
+
 
 # Helper to fetch latest active monthly data (Associates)
 def get_latest_monthly_data():
@@ -1334,53 +1698,53 @@ def get_latest_monthly_data():
 
 # Helper to fetch latest active monthly data (BA)
 def ba_get_latest_monthly_data():
-    h = ba_load_history()
+    h = ba_load_history_cached()
     active_mask = _coerce_active_bool(h.get("active", pd.Series([], dtype="object")))
     active = h[active_mask]
     if active.empty:
         return None, None, None
     latest_row = active.sort_values("upload_dt", ascending=False).iloc[0]
     latest_id = latest_row["id"]
-    combined_df = ba_load_combined()
+    combined_df = ba_load_combined_cached()
     latest_data = combined_df[combined_df["Attachment ID"] == latest_id]
     return latest_row, latest_id, latest_data
 
 # Helper to fetch latest active monthly data (PE)
 def pe_get_latest_monthly_data():
-    h = pe_load_history()
+    h = pe_load_history_cached()
     active_mask = _coerce_active_bool(h.get("active", pd.Series([], dtype="object")))
     active = h[active_mask]
     if active.empty:
         return None, None, None
     latest_row = active.sort_values("upload_dt", ascending=False).iloc[0]
     latest_id = latest_row["id"]
-    combined_df = pe_load_combined()
+    combined_df = pe_load_combined_cached()
     latest_data = combined_df[combined_df["Attachment ID"] == latest_id]
     return latest_row, latest_id, latest_data
 
 # Helper to fetch latest active monthly data (TL)
 def tl_get_latest_monthly_data():
-    h = tl_load_history()
+    h = tl_load_history_cached()
     active_mask = _coerce_active_bool(h.get("active", pd.Series([], dtype="object")))
     active = h[active_mask]
     if active.empty:
         return None, None, None
     latest_row = active.sort_values("upload_dt", ascending=False).iloc[0]
     latest_id = latest_row["id"]
-    combined_df = tl_load_combined()
+    combined_df = tl_load_combined_cached()
     latest_data = combined_df[combined_df["Attachment ID"] == latest_id]
     return latest_row, latest_id, latest_data
 
 # Helper to fetch latest active monthly data (PL)
 def pl_get_latest_monthly_data():
-    h = pl_load_history()
+    h = pl_load_history_cached()
     active_mask = _coerce_active_bool(h.get("active", pd.Series([], dtype="object")))
     active = h[active_mask]
     if active.empty:
         return None, None, None
     latest_row = active.sort_values("upload_dt", ascending=False).iloc[0]
     latest_id = latest_row["id"]
-    combined_df = pl_load_combined()
+    combined_df = pl_load_combined_cached()
     latest_data = combined_df[combined_df["Attachment ID"] == latest_id]
     return latest_row, latest_id, latest_data
 
@@ -1618,18 +1982,34 @@ if page == "Associates Scorecard (Monthly/YTD metrics)":
 
     # ===== Monthly =====
     if mode == "Monthly":
-        latest_row, latest_id, latest_data = get_latest_monthly_data()
+
+        ### replacing the below line 1 with code snippet with comment as "Use cached reads to assemble latest data"
+        ### latest_row, latest_id, latest_data = get_latest_monthly_data()
+
+        # Use cached reads to assemble latest data
+        h = load_history_cached()
+        active_mask = _coerce_active_bool(h.get("active", pd.Series([], dtype="object")))
+        active = h[active_mask]
+        if active.empty:
+            latest_row, latest_id, latest_data = None, None, None
+        else:
+            latest_row = active.sort_values("upload_dt", ascending=False).iloc[0]
+            latest_id = latest_row["id"]
+            combined_df = load_combined_cached()
+            latest_data = combined_df[combined_df["Attachment ID"] == latest_id]
+
         if latest_data is None or latest_data.empty:
             st.warning("No active file available.")
         else:
             latest_data = clean_dataframe_for_display(latest_data, st.session_state.hide_cols)
-            latest_data = add_numeric_percent_columns(latest_data)
+            latest_data = add_numeric_cached(latest_data)
+
 
             def render_shared_filters(df, label="Filters (Monthly)"):
                 month_str = _to_month_str_series(df)
                 month_options = sorted([m for m in month_str.dropna().unique() if m and str(m).strip() != ""])
                 with st.expander(label, expanded=True):
-                    c1, c2, c3, c4, c5 = st.columns(5)
+                    c1, c2, c3, c4, c5, c6 = st.columns(6)
                     domain_options = sorted(df["Domain ID"].dropna().astype(str).unique()) if "Domain ID" in df.columns else []
                     func_options = sorted(df["Function"].dropna().astype(str).unique()) if "Function" in df.columns else []
                     flead_options = sorted(df["Function Lead"].dropna().astype(str).unique()) if "Function Lead" in df.columns else []
@@ -1638,7 +2018,9 @@ if page == "Associates Scorecard (Monthly/YTD metrics)":
                     funcs = c2.multiselect("Function", func_options)
                     f_leads = c3.multiselect("Function Lead", flead_options)
                     t_leads = c4.multiselect("Team Lead", tlead_options)
-                    months = c5.multiselect("Month (YYYY-MM)", month_options)
+                    # 👉 New: Final score band next to Team Lead
+                    final_score_band = c5.selectbox("Final score",options=["All", ">= 100", "Between 90 and 99.99", "< 90"],index=0 )
+                    months = c6.multiselect("Month (YYYY-MM)", month_options)
 
                     # Feedback entry when exactly one Domain ID and one Month
                     if d_ids and len(d_ids) == 1 and months and len(months) == 1:
@@ -1671,10 +2053,17 @@ if page == "Associates Scorecard (Monthly/YTD metrics)":
                                     st.error("Selected Domain ID not found in current dataset.")
                             else:
                                 st.error("Incorrect password. Feedback not saved.")
-                return d_ids, funcs, f_leads, t_leads, months, None
+                return d_ids, funcs, f_leads, t_leads, months, final_score_band, None
 
-            d_ids, funcs, f_leads, t_leads, months, _ = render_shared_filters(latest_data)
+            # Below 2 lines of code are the older ones.
+            # d_ids, funcs, f_leads, t_leads, months, _ = render_shared_filters(latest_data)
+            # filtered = filter_combined(latest_data, d_ids, funcs, f_leads, t_leads, months)
+
+            
+            d_ids, funcs, f_leads, t_leads, months, fs_band, _ = render_shared_filters(latest_data)
             filtered = filter_combined(latest_data, d_ids, funcs, f_leads, t_leads, months)
+            # 👉 Apply Final score band filter
+            filtered = apply_final_score_band_filter(filtered, fs_band)
             filtered = clean_dataframe_for_display(filtered, st.session_state.hide_cols)
 
             c1,c2,c3,c4 = st.columns(4)
@@ -1694,15 +2083,23 @@ if page == "Associates Scorecard (Monthly/YTD metrics)":
                 group_by="Domain ID"
             )
             st.caption(f"Showing {len(mon_metrics)} monthly rows (from filtered view)")
-            st.dataframe(mon_metrics, height=420)
+            
+            # 👉 Styled display (Associates Monthly only)
+            mon_metrics_styled = style_associates_metrics_df(mon_metrics)
+            # Before (less reliable for Styler colors)
+            # st.dataframe(mon_metrics, height=420)
 
+            st.table(mon_metrics_styled)
+            
+            # 👉 Download with colors applied in Excel (Associates Monthly only)
             if exceeds_excel_limits(mon_metrics):
                 st.caption("Note: Monthly metrics are too wide for Excel; download provided as CSV.")
             st.download_button(
                 "⬇️ Download Monthly Metrics",
-                make_excel_bytes_from_df(mon_metrics, st.session_state.hide_cols),
+                make_excel_bytes_associates_monthly_metrics(mon_metrics, st.session_state.hide_cols),
                 file_name=f"{EXPORT_PREFIX}monthly_associates_metrics_{active_month}.xlsx"
             )
+
 
             # Simple charts
             if "Function" in filtered.columns and "Final Score_num" in filtered.columns:
@@ -1778,10 +2175,12 @@ if page == "Associates Scorecard (Monthly/YTD metrics)":
                     )
 
                     try:
-                        history = load_history()
+                        ### history = load_history() below is the new  line of code
+                        history = load_history_cached()
                         active_mask_trend = _coerce_active_bool(history.get("active", pd.Series([], dtype="object")))
                         active_ids = history[active_mask_trend][["id","reporting_month"]].rename(columns={"id":"Attachment ID"})
-                        monthly_all = load_combined()
+                        ### monthly_all = load_combined() below is the new  line of code
+                        monthly_all = load_combined_cached()
                         monthly_active = monthly_all.merge(active_ids, on="Attachment ID", how="inner")
                         monthly_active["reporting_month"] = monthly_active["reporting_month"].astype(str)
                         monthly_active = add_numeric_percent_columns(monthly_active)
@@ -1823,21 +2222,25 @@ if page == "Associates Scorecard (Monthly/YTD metrics)":
                                   latest_row["filename"] if "filename" in latest_row else "",
                                   st.session_state.username or "admin")
                         st.success("Admin changes saved to combined storage.")
+                        invalidate_data_caches()  # ensure next UI run fetches fresh files
                     except Exception as e:
                         st.error(f"Failed to save admin changes: {e}")
 
+
     # ===== YTD =====
     else:
-        history = load_history()
+        ### history = load_history() below is the new  line of code
+        history = load_history_cached()
         active_mask = _coerce_active_bool(history.get("active", pd.Series([], dtype="object")))
         active_ids = history[active_mask][["id","reporting_month"]].rename(columns={"id":"Attachment ID"})
-        monthly_all = load_combined()
+        ### monthly_all = load_combined() below is the new  line of code
+        monthly_all = load_combined_cached()
         ytd = monthly_all.merge(active_ids, on="Attachment ID", how="inner")
         if ytd.empty:
             st.warning("No YTD data.")
             st.stop()
         ytd = clean_dataframe_for_display(ytd, st.session_state.hide_cols)
-        ytd = add_numeric_percent_columns(ytd)
+        ytd = add_numeric_cached(ytd)
 
         def render_ytd_filters(df, label="Filters (YTD)"):
             month_str = _to_month_str_series(df)
@@ -1851,7 +2254,7 @@ if page == "Associates Scorecard (Monthly/YTD metrics)":
                 else: fy_start, fy_end = y-1, y
                 return f"FY{fy_start}-{str(fy_end)[-2:]}"
             with st.expander(label, expanded=True):
-                c1, c2, c3, c4, c5 = st.columns(5)
+                c1, c2, c3, c4, c5, c6 = st.columns(6)
                 domain_options = sorted(df["Domain ID"].dropna().astype(str).unique()) if "Domain ID" in df.columns else []
                 func_options = sorted(df["Function"].dropna().astype(str).unique()) if "Function" in df.columns else []
                 flead_options = sorted(df["Function Lead"].dropna().astype(str).unique()) if "Function Lead" in df.columns else []
@@ -1860,19 +2263,31 @@ if page == "Associates Scorecard (Monthly/YTD metrics)":
                 funcs = c2.multiselect("Function", func_options)
                 f_leads = c3.multiselect("Function Lead", flead_options)
                 t_leads = c4.multiselect("Team Lead", tlead_options)
-                use_fy = c5.checkbox("Use Fiscal Year (Apr–Mar)", value=False)
+
+                # 👉 New: Final score band next to Team Lead (same options as Monthly)
+                final_score_band = c5.selectbox("Final score",options=["All", ">= 100", "Between 90 and 99.99", "< 90"],index=0)
+
+
+                use_fy = c6.checkbox("Use Fiscal Year (Apr–Mar)", value=False)
                 if use_fy and month_options:
                     fy_options = sorted({ _fy_label(m) for m in month_options if _fy_label(m) })
-                    sel_fy = c5.selectbox("Fiscal Year", options=fy_options, index=0 if fy_options else 0)
+                    sel_fy = c6.selectbox("Fiscal Year", options=fy_options, index=0 if fy_options else 0)
                     months = [m for m in month_options if _fy_label(m) == sel_fy]
                     st.caption(f"Months auto-selected for {sel_fy}: {', '.join(months)}")
                 else:
-                    months = c5.multiselect("Month (YYYY-MM)", month_options)
-                search = st.text_input("🔎 Search across all columns (YTD)")
-                return d_ids, funcs, f_leads, t_leads, months, search
+                    months = c6.multiselect("Month (YYYY-MM)", month_options)
+                return d_ids, funcs, f_leads, t_leads, months, final_score_band
+        
+        ### Below are the 2 older lines
+        ### d_ids, funcs, f_leads, t_leads, months, search = render_ytd_filters(ytd)
+        ### ytd_filtered = filter_combined(ytd, d_ids, funcs, f_leads, t_leads, months)
 
-        d_ids, funcs, f_leads, t_leads, months, search = render_ytd_filters(ytd)
+        #Now:
+        d_ids, funcs, f_leads, t_leads, months, fs_band = render_ytd_filters(ytd)
+        search = st.text_input("🔎 Search across all columns (YTD)")  # keep existing search UI
         ytd_filtered = filter_combined(ytd, d_ids, funcs, f_leads, t_leads, months)
+        # 👉 Apply Final score band (same as Monthly approach)
+        ytd_filtered = apply_final_score_band_filter(ytd_filtered, fs_band)
         ytd_filtered = apply_search(ytd_filtered, search)
         ytd_filtered = clean_dataframe_for_display(ytd_filtered, st.session_state.hide_cols)
 
@@ -1887,13 +2302,28 @@ if page == "Associates Scorecard (Monthly/YTD metrics)":
         ytd_assoc_agg = ytd_aggregated_table(ytd_filtered, group_by=agg_by)
         st.caption(f"Showing {len(ytd_assoc_agg)} aggregated rows")
         st.dataframe(ytd_assoc_agg, height=420)
+     
+        # 👉 Add color-coded view (same scheme as Monthly)
+        ytd_assoc_agg_styled = style_associates_metrics_df(ytd_assoc_agg)
+        st.caption("Color-coded view (Final Score)")
+        st.table(ytd_assoc_agg_styled)
+
         if exceeds_excel_limits(ytd_assoc_agg):
             st.caption("Note: Aggregated result is too wide for Excel; download provided as CSV.")
+        
         st.download_button(
             "⬇️ Download aggregated (YTD Associates Table)",
             make_excel_bytes_from_df(ytd_assoc_agg, st.session_state.hide_cols),
             file_name=f"{EXPORT_PREFIX}ytd_associates_aggregated_{agg_by.lower().replace(' ', '_')}.xlsx"
         )
+
+        # 👉 New: color-coded Excel download for YTD
+        st.download_button(
+            "⬇️ Download aggregated (YTD Associates Table – colored)",
+            make_excel_bytes_associates_ytd_aggregated(ytd_assoc_agg, st.session_state.hide_cols),
+            file_name=f"{EXPORT_PREFIX}ytd_associates_aggregated_{agg_by.lower().replace(' ', '_')}_colored.xlsx"
+        )
+
 
         enable_altair_theme()
         with st.expander("🎨 Advanced Visualizations (YTD)", expanded=False):
@@ -1978,7 +2408,7 @@ elif page == "BA Scorecard (Monthly/YTD metrics)":
             st.warning("No active BA file available.")
         else:
             latest_data = clean_dataframe_for_display(latest_data, st.session_state.hide_cols)
-            latest_data = add_numeric_percent_columns(latest_data)
+            latest_data = add_numeric_cached(latest_data)
 
             def render_shared_filters_ba(df, label="Filters (Monthly)"):
                 month_str = _to_month_str_series(df)
@@ -2127,10 +2557,10 @@ elif page == "BA Scorecard (Monthly/YTD metrics)":
                     )
 
                     try:
-                        history = ba_load_history()
+                        history = ba_load_history_cached()
                         active_mask_trend = _coerce_active_bool(history.get("active", pd.Series([], dtype="object")))
                         active_ids = history[active_mask_trend][["id","reporting_month"]].rename(columns={"id":"Attachment ID"})
-                        monthly_all = ba_load_combined()
+                        monthly_all = ba_load_combined_cached()
                         monthly_active = monthly_all.merge(active_ids, on="Attachment ID", how="inner")
                         monthly_active["reporting_month"] = monthly_active["reporting_month"].astype(str)
                         monthly_active = add_numeric_percent_columns(monthly_active)
@@ -2163,7 +2593,7 @@ elif page == "BA Scorecard (Monthly/YTD metrics)":
                         edited = convert_percentage_columns(edited)
                         edited = add_numeric_percent_columns(edited)
                         edited["Attachment ID"] = latest_id
-                        combined_df = ba_load_combined()
+                        combined_df = ba_load_combined_cached()
                         combined_df = combined_df[combined_df["Attachment ID"] != latest_id]
                         combined_df = pd.concat([combined_df, edited], ignore_index=True)
                         ba_save_combined(combined_df)
@@ -2172,20 +2602,21 @@ elif page == "BA Scorecard (Monthly/YTD metrics)":
                                      latest_row["filename"] if "filename" in latest_row else "",
                                      st.session_state.username or "admin")
                         st.success("Admin changes saved to BA combined storage.")
+                        invalidate_data_caches()  # ensure next UI run fetches fresh files
                     except Exception as e:
                         st.error(f"Failed to save admin changes: {e}")
 
     else:
-        history = ba_load_history()
+        history = ba_load_history_cached()
         active_mask = _coerce_active_bool(history.get("active", pd.Series([], dtype="object")))
         active_ids = history[active_mask][["id","reporting_month"]].rename(columns={"id":"Attachment ID"})
-        monthly_all = ba_load_combined()
+        monthly_all = ba_load_combined_cached()
         ytd = monthly_all.merge(active_ids, on="Attachment ID", how="inner")
         if ytd.empty:
             st.warning("No BA YTD data.")
             st.stop()
         ytd = clean_dataframe_for_display(ytd, st.session_state.hide_cols)
-        ytd = add_numeric_percent_columns(ytd)
+        ytd = add_numeric_cached(ytd)
 
         def render_ytd_filters_ba(df, label="Filters (YTD)"):
             month_str = _to_month_str_series(df)
@@ -2327,7 +2758,7 @@ elif page == "PE Scorecard (Monthly/YTD metrics)":
             st.warning("No active PE file available.")
         else:
             latest_data = clean_dataframe_for_display(latest_data, st.session_state.hide_cols)
-            latest_data = add_numeric_percent_columns(latest_data)
+            latest_data = add_numeric_cached(latest_data)
 
             def render_shared_filters_pe(df, label="Filters (Monthly)"):
                 month_str = _to_month_str_series(df)
@@ -2471,10 +2902,10 @@ elif page == "PE Scorecard (Monthly/YTD metrics)":
                         use_container_width=True
                     )
                     try:
-                        history = pe_load_history()
+                        history = pe_load_history_cached()
                         active_mask_trend = _coerce_active_bool(history.get("active", pd.Series([], dtype="object")))
                         active_ids = history[active_mask_trend][["id","reporting_month"]].rename(columns={"id":"Attachment ID"})
-                        monthly_all = pe_load_combined()
+                        monthly_all = pe_load_combined_cached()
                         monthly_active = monthly_all.merge(active_ids, on="Attachment ID", how="inner")
                         monthly_active["reporting_month"] = monthly_active["reporting_month"].astype(str)
                         monthly_active = add_numeric_percent_columns(monthly_active)
@@ -2507,7 +2938,7 @@ elif page == "PE Scorecard (Monthly/YTD metrics)":
                         edited = convert_percentage_columns(edited)
                         edited = add_numeric_percent_columns(edited)
                         edited["Attachment ID"] = latest_id
-                        combined_df = pe_load_combined()
+                        combined_df = pe_load_combined_cached()
                         combined_df = combined_df[combined_df["Attachment ID"] != latest_id]
                         combined_df = pd.concat([combined_df, edited], ignore_index=True)
                         pe_save_combined(combined_df)
@@ -2515,21 +2946,22 @@ elif page == "PE Scorecard (Monthly/YTD metrics)":
                                      latest_row["filename"] if "filename" in latest_row else "",
                                      st.session_state.username or "admin")
                         st.success("Admin changes saved to PE combined storage.")
+                        invalidate_data_caches()  # ensure next UI run fetches fresh files
                     except Exception as e:
                         st.error(f"Failed to save admin changes: {e}")
 
     else:
         # YTD
-        history = pe_load_history()
+        history = pe_load_history_cached()
         active_mask = _coerce_active_bool(history.get("active", pd.Series([], dtype="object")))
         active_ids = history[active_mask][["id","reporting_month"]].rename(columns={"id":"Attachment ID"})
-        monthly_all = pe_load_combined()
+        monthly_all = pe_load_combined_cached()
         ytd = monthly_all.merge(active_ids, on="Attachment ID", how="inner")
         if ytd.empty:
             st.warning("No PE YTD data.")
             st.stop()
         ytd = clean_dataframe_for_display(ytd, st.session_state.hide_cols)
-        ytd = add_numeric_percent_columns(ytd)
+        ytd = add_numeric_cached(ytd)
 
         def render_ytd_filters_pe(df, label="Filters (YTD)"):
             month_str = _to_month_str_series(df)
@@ -2667,7 +3099,7 @@ elif page == "TL Scorecard (Monthly/YTD metrics)":
             st.warning("No active TL file available.")
         else:
             latest_data = clean_dataframe_for_display(latest_data, st.session_state.hide_cols)
-            latest_data = add_numeric_percent_columns(latest_data)
+            latest_data = add_numeric_cached(latest_data)
 
             def render_shared_filters_tl(df, label="Filters (Monthly)"):
                 month_str = _to_month_str_series(df)
@@ -2811,10 +3243,10 @@ elif page == "TL Scorecard (Monthly/YTD metrics)":
                         use_container_width=True
                     )
                     try:
-                        history = tl_load_history()
+                        history = tl_load_history_cached()
                         active_mask_trend = _coerce_active_bool(history.get("active", pd.Series([], dtype="object")))
                         active_ids = history[active_mask_trend][["id","reporting_month"]].rename(columns={"id":"Attachment ID"})
-                        monthly_all = tl_load_combined()
+                        monthly_all = tl_load_combined_cached()
                         monthly_active = monthly_all.merge(active_ids, on="Attachment ID", how="inner")
                         monthly_active["reporting_month"] = monthly_active["reporting_month"].astype(str)
                         monthly_active = add_numeric_percent_columns(monthly_active)
@@ -2847,7 +3279,7 @@ elif page == "TL Scorecard (Monthly/YTD metrics)":
                         edited = convert_percentage_columns(edited)
                         edited = add_numeric_percent_columns(edited)
                         edited["Attachment ID"] = latest_id
-                        combined_df = tl_load_combined()
+                        combined_df = tl_load_combined_cached()
                         combined_df = combined_df[combined_df["Attachment ID"] != latest_id]
                         combined_df = pd.concat([combined_df, edited], ignore_index=True)
                         tl_save_combined(combined_df)
@@ -2855,21 +3287,22 @@ elif page == "TL Scorecard (Monthly/YTD metrics)":
                                      latest_row["filename"] if "filename" in latest_row else "",
                                      st.session_state.username or "admin")
                         st.success("Admin changes saved to TL combined storage.")
+                        invalidate_data_caches()  # ensure next UI run fetches fresh files
                     except Exception as e:
                         st.error(f"Failed to save admin changes: {e}")
 
     else:
         # YTD
-        history = tl_load_history()
+        history = tl_load_history_cached()
         active_mask = _coerce_active_bool(history.get("active", pd.Series([], dtype="object")))
         active_ids = history[active_mask][["id","reporting_month"]].rename(columns={"id":"Attachment ID"})
-        monthly_all = tl_load_combined()
+        monthly_all = tl_load_combined_cached()
         ytd = monthly_all.merge(active_ids, on="Attachment ID", how="inner")
         if ytd.empty:
             st.warning("No TL YTD data.")
             st.stop()
         ytd = clean_dataframe_for_display(ytd, st.session_state.hide_cols)
-        ytd = add_numeric_percent_columns(ytd)
+        ytd = add_numeric_cached(ytd)
 
         def render_ytd_filters_tl(df, label="Filters (YTD)"):
             month_str = _to_month_str_series(df)
@@ -3007,7 +3440,7 @@ elif page == "PL Scorecard (Monthly/YTD metrics)":
             st.warning("No active PL file available.")
         else:
             latest_data = clean_dataframe_for_display(latest_data, st.session_state.hide_cols)
-            latest_data = add_numeric_percent_columns(latest_data)
+            latest_data = add_numeric_cached(latest_data)
 
             def render_shared_filters_pl(df, label="Filters (Monthly)"):
                 month_str = _to_month_str_series(df)
@@ -3151,10 +3584,10 @@ elif page == "PL Scorecard (Monthly/YTD metrics)":
                         use_container_width=True
                     )
                     try:
-                        history = pl_load_history()
+                        history = pl_load_history_cached()
                         active_mask_trend = _coerce_active_bool(history.get("active", pd.Series([], dtype="object")))
                         active_ids = history[active_mask_trend][["id","reporting_month"]].rename(columns={"id":"Attachment ID"})
-                        monthly_all = pl_load_combined()
+                        monthly_all = pl_load_combined_cached()
                         monthly_active = monthly_all.merge(active_ids, on="Attachment ID", how="inner")
                         monthly_active["reporting_month"] = monthly_active["reporting_month"].astype(str)
                         monthly_active = add_numeric_percent_columns(monthly_active)
@@ -3187,7 +3620,7 @@ elif page == "PL Scorecard (Monthly/YTD metrics)":
                         edited = convert_percentage_columns(edited)
                         edited = add_numeric_percent_columns(edited)
                         edited["Attachment ID"] = latest_id
-                        combined_df = pl_load_combined()
+                        combined_df = pl_load_combined_cached()
                         combined_df = combined_df[combined_df["Attachment ID"] != latest_id]
                         combined_df = pd.concat([combined_df, edited], ignore_index=True)
                         pl_save_combined(combined_df)
@@ -3195,21 +3628,22 @@ elif page == "PL Scorecard (Monthly/YTD metrics)":
                                      latest_row["filename"] if "filename" in latest_row else "",
                                      st.session_state.username or "admin")
                         st.success("Admin changes saved to PL combined storage.")
+                        invalidate_data_caches()  # ensure next UI run fetches fresh files
                     except Exception as e:
                         st.error(f"Failed to save admin changes: {e}")
 
     else:
         # YTD
-        history = pl_load_history()
+        history = pl_load_history_cached()
         active_mask = _coerce_active_bool(history.get("active", pd.Series([], dtype="object")))
         active_ids = history[active_mask][["id","reporting_month"]].rename(columns={"id":"Attachment ID"})
-        monthly_all = pl_load_combined()
+        monthly_all = pl_load_combined_cached()
         ytd = monthly_all.merge(active_ids, on="Attachment ID", how="inner")
         if ytd.empty:
             st.warning("No PL YTD data.")
             st.stop()
         ytd = clean_dataframe_for_display(ytd, st.session_state.hide_cols)
-        ytd = add_numeric_percent_columns(ytd)
+        ytd = add_numeric_cached(ytd)
 
         def render_ytd_filters_pl(df, label="Filters (YTD)"):
             month_str = _to_month_str_series(df)
@@ -3425,7 +3859,7 @@ elif page == "Upload & Admin":
                     st.success(msg) if ok else st.error(msg)
 
     with tab2:
-        ba_history_df = ba_load_history()
+        ba_history_df = ba_load_history_cached()
         if ba_history_df.empty:
             st.info("No BA attachments yet.")
         else:
@@ -3443,7 +3877,7 @@ elif page == "Upload & Admin":
 
     
     with tab3:
-        pe_history_df = pe_load_history()
+        pe_history_df = pe_load_history_cached()
         if pe_history_df.empty:
             st.info("No PE attachments yet.")
         else:
@@ -3460,7 +3894,7 @@ elif page == "Upload & Admin":
                     st.success(msg) if ok else st.error(msg)
 
     with tab4:
-        tl_history_df = tl_load_history()
+        tl_history_df = tl_load_history_cached()
         if tl_history_df.empty:
             st.info("No TL attachments yet.")
         else:
@@ -3477,7 +3911,7 @@ elif page == "Upload & Admin":
                     st.success(msg) if ok else st.error(msg)
 
     with tab5:
-        pl_history_df = pl_load_history()
+        pl_history_df = pl_load_history_cached()
         if pl_history_df.empty:
             st.info("No PL attachments yet.")
         else:
